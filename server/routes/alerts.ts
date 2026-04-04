@@ -11,6 +11,23 @@ const alertSchema = z.object({
   destination: z.string().min(1)
 });
 
+// Get all alerts for user
+router.get('/', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const [alerts]: any = await pool.query(`
+      SELECT a.*, m.name as monitor_name 
+      FROM alerts a
+      JOIN monitors m ON a.monitor_id = m.id
+      WHERE m.user_id = ?
+      ORDER BY a.created_at DESC
+    `, [req.user?.id]);
+    res.json(alerts);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch alerts' });
+  }
+});
+
 // Get alerts for a monitor
 router.get('/:monitor_id', authenticateToken, async (req: AuthRequest, res) => {
   try {
