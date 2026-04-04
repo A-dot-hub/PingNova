@@ -76,19 +76,43 @@ export async function logToCloudWatch(message: string, type: 'INFO' | 'ERROR' = 
   const logGroupName = process.env.CLOUDWATCH_LOG_GROUP || '/pingnova/app-logs';
   const logStreamName = process.env.CLOUDWATCH_LOG_STREAM || 'production';
 
-  const command = new PutLogEventsCommand({
-    logGroupName,
-    logStreamName,
-    logEvents: [
-      {
-        message: `[${type}] ${message}`,
-        timestamp: Date.now(),
-      },
-    ],
-  });
-
   try {
-    await cloudWatchClient.send(command);
+    // 1. Ensure log stream exists
+    const describeStreams = await cloudWatchClient.send(
+      new DescribeLogStreamsCommand({
+        logGroupName,
+        logStreamNamePrefix: logStreamName
+      })
+    );
+
+    let logStream = describeStreams.logStreams?.find(ls => ls.logStreamName === logStreamName);
+
+    // Create log stream if it doesn't exist
+    if (!logStream) {
+      await cloudWatchClient.send(
+        new CreateLogStreamCommand({ logGroupName, logStreamName })
+      );
+      logStream = { logStreamName };
+    }
+
+    const sequenceToken = logStream.uploadSequenceToken;
+
+    // 2. Send the log event
+    await cloudWatchClient.send(
+      new PutLogEventsCommand({
+        logGroupName,
+        logStreamName,
+        logEvents: [
+          {
+            message: `[${type}] ${message}`,
+            timestamp: Date.now(),
+          },
+        ],
+        sequenceToken, // important for existing log streams
+      })
+    );
+
+    console.log('Log sent to CloudWatch:', message);
   } catch (error) {
     console.error('Failed to log to CloudWatch:', error);
   }
