@@ -2,6 +2,8 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { CloudWatchLogsClient, PutLogEventsCommand } from '@aws-sdk/client-cloudwatch-logs';
+import {  CreateLogStreamCommand, DescribeLogStreamsCommand} from "@aws-sdk/client-cloudwatch-logs";
+
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -67,6 +69,7 @@ export async function sendSMS(phoneNumber: string, message: string) {
   }
 }
 
+
 export async function logToCloudWatch(message: string, type: 'INFO' | 'ERROR' = 'INFO') {
   if (!cloudWatchClient) {
     console.log(`[${type}] ${message}`);
@@ -77,43 +80,38 @@ export async function logToCloudWatch(message: string, type: 'INFO' | 'ERROR' = 
   const logStreamName = process.env.CLOUDWATCH_LOG_STREAM || 'production';
 
   try {
-    // 1. Ensure log stream exists
-    const describeStreams = await cloudWatchClient.send(
-      new DescribeLogStreamsCommand({
+    // 1️⃣ Ensure log stream exists
+    const describe = await cloudWatchClient.send(new DescribeLogStreamsCommand({
+      logGroupName,
+      logStreamNamePrefix: logStreamName
+    }));
+
+    if (!describe.logStreams || describe.logStreams.length === 0) {
+      await cloudWatchClient.send(new CreateLogStreamCommand({
         logGroupName,
-        logStreamNamePrefix: logStreamName
-      })
-    );
-
-    let logStream = describeStreams.logStreams?.find(ls => ls.logStreamName === logStreamName);
-
-    // Create log stream if it doesn't exist
-    if (!logStream) {
-      await cloudWatchClient.send(
-        new CreateLogStreamCommand({ logGroupName, logStreamName })
-      );
-      logStream = { logStreamName };
+        logStreamName
+      }));
     }
 
-    const sequenceToken = logStream.uploadSequenceToken;
+    // 2️⃣ Get sequence token if required
+    const logStream = describe.logStreams?.[0];
+    const sequenceToken = logStream?.uploadSequenceToken;
 
-    // 2. Send the log event
-    await cloudWatchClient.send(
-      new PutLogEventsCommand({
-        logGroupName,
-        logStreamName,
-        logEvents: [
-          {
-            message: `[${type}] ${message}`,
-            timestamp: Date.now(),
-          },
-        ],
-        sequenceToken, // important for existing log streams
-      })
-    );
+    // 3️⃣ Put log event
+    await cloudWatchClient.send(new PutLogEventsCommand({
+      logGroupName,
+      logStreamName,
+      logEvents: [
+        {
+          message: `[${type}] ${message}`,
+          timestamp: Date.now(),
+        },
+      ],
+      sequenceToken, // undefined if first log
+    }));
 
-    console.log('Log sent to CloudWatch:', message);
+    console.log(`[CloudWatch][${type}] ${message}`);
   } catch (error) {
-    console.error('Failed to log to CloudWatch2:', error);
+    console.error('Failed to log to CloudWatch:', error);
   }
 }
