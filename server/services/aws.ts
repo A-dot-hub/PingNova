@@ -114,6 +114,6 @@ export async function logToCloudWatch(message: string, type: 'INFO' | 'ERROR' = 
 
     console.log('Log sent to CloudWatch:', message);
   } catch (error) {
-    console.error('Failed to log to CloudWatch:', error);
+    console.error('Failed to log to CloudWatch2:', error);
   }
 }
