@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
-import { logToCloudWatch } from './awsClients'; // Adjust path if needed
+import { logToCloudWatch } from  '@aws-sdk/client-cloudwatch-logs';// Adjust path if needed
 import { fileURLToPath } from 'url';
 
 // Load environment variables
