@@ -26,10 +26,16 @@ app.use(express.json());
 import authRoutes from './server/routes/auth.js';
 import monitorRoutes from './server/routes/monitors.js';
 import alertRoutes from './server/routes/alerts.js';
+import dashboardRoutes from './server/routes/dashboard.js';
+import exportRoutes from './server/routes/export.js';
+import statusRoutes from './server/routes/status.js';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/monitors', monitorRoutes);
 app.use('/api/alerts', alertRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/export', exportRoutes);
+app.use('/api/status', statusRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
