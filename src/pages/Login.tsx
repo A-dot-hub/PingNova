@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Activity } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function Login({ setIsAuthenticated }: { setIsAuthenticated: (val: boolean) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -15,9 +15,10 @@ export default function Login({ setIsAuthenticated }: { setIsAuthenticated: (val
       const res = await axios.post('/api/auth/login', { email, password });
       localStorage.setItem('token', res.data.token);
       setIsAuthenticated(true);
+      toast.success('Logged in successfully');
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Login failed');
+      toast.error(err.response?.data?.error || 'Login failed');
     }
   };
 
@@ -33,7 +34,6 @@ export default function Login({ setIsAuthenticated }: { setIsAuthenticated: (val
           </h2>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && <div className="text-red-500 text-sm text-center bg-red-50 p-2 rounded">{error}</div>}
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
               <input
