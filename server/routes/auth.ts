@@ -79,13 +79,57 @@ router.get('/me', async (req, res) => {
     if (!token) return res.status(401).json({ error: 'Unauthorized' });
 
     const decoded: any = jwt.verify(token, JWT_SECRET);
-    const [users]: any = await pool.query('SELECT id, name, email, plan FROM users WHERE id = ?', [decoded.id]);
+    const [users]: any = await pool.query('SELECT id, name, email, plan, phone_number, email_alerts, sms_alerts FROM users WHERE id = ?', [decoded.id]);
     
     if (users.length === 0) return res.status(404).json({ error: 'User not found' });
 
     res.json({ user: users[0] });
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+// Update preferences
+router.put('/preferences', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    const decoded: any = jwt.verify(token, JWT_SECRET);
+
+    const { email_alerts, sms_alerts, phone_number } = req.body;
+    await pool.query(
+      'UPDATE users SET email_alerts = ?, sms_alerts = ?, phone_number = ? WHERE id = ?',
+      [email_alerts, sms_alerts, phone_number, decoded.id]
+    );
+    res.json({ message: 'Preferences updated successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update preferences' });
+  }
+});
+
+// Change password
+router.put('/password', async (req, res) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    const decoded: any = jwt.verify(token, JWT_SECRET);
+
+    const { currentPassword, newPassword } = req.body;
+    
+    const [users]: any = await pool.query('SELECT password FROM users WHERE id = ?', [decoded.id]);
+    if (users.length === 0) return res.status(404).json({ error: 'User not found' });
+
+    const validPassword = await bcrypt.compare(currentPassword, users[0].password);
+    if (!validPassword) return res.status(400).json({ error: 'Invalid current password' });
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, decoded.id]);
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update password' });
   }
 });
 

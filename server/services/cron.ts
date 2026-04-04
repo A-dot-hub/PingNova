@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { pool } from '../db/index.js';
 import nodemailer from 'nodemailer';
+import { sendSMS, logToCloudWatch } from './aws.js';
 
 // Configure Nodemailer (Use your own SMTP credentials in production)
 const transporter = nodemailer.createTransport({
@@ -12,10 +13,14 @@ const transporter = nodemailer.createTransport({
   }
 });
 
-async function sendAlert(destination: string, type: string, monitorName: string, status: string, url: string) {
+async function sendAlert(destination: string, type: string, monitorName: string, status: string, url: string, userId: number) {
   const message = `Monitor ${monitorName} (${url}) is currently ${status.toUpperCase()}.`;
   
-  if (type === 'email') {
+  // Fetch user preferences
+  const [users]: any = await pool.query('SELECT email_alerts, sms_alerts, phone_number FROM users WHERE id = ?', [userId]);
+  const user = users[0];
+
+  if (type === 'email' && user?.email_alerts) {
     try {
       await transporter.sendMail({
         from: '"PingNova Alerts" <alerts@pingnova.com>',
@@ -23,9 +28,9 @@ async function sendAlert(destination: string, type: string, monitorName: string,
         subject: `[PingNova] Monitor Alert: ${monitorName} is ${status.toUpperCase()}`,
         text: message
       });
-      console.log(`Email alert sent to ${destination} for ${monitorName}`);
+      await logToCloudWatch(`Email alert sent to ${destination} for ${monitorName}`, 'INFO');
     } catch (error) {
-      console.error(`Failed to send email alert to ${destination}:`, error);
+      await logToCloudWatch(`Failed to send email alert to ${destination}: ${error}`, 'ERROR');
     }
   } else if (type === 'webhook') {
     try {
@@ -34,10 +39,15 @@ async function sendAlert(destination: string, type: string, monitorName: string,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ monitorName, url, status, message })
       });
-      console.log(`Webhook alert sent to ${destination} for ${monitorName}`);
+      await logToCloudWatch(`Webhook alert sent to ${destination} for ${monitorName}`, 'INFO');
     } catch (error) {
-      console.error(`Failed to send webhook alert to ${destination}:`, error);
+      await logToCloudWatch(`Failed to send webhook alert to ${destination}: ${error}`, 'ERROR');
     }
+  }
+
+  // Send SMS if enabled
+  if (user?.sms_alerts && user?.phone_number) {
+    await sendSMS(user.phone_number, `[PingNova] ${monitorName} is ${status.toUpperCase()}`);
   }
 }
 
@@ -83,32 +93,23 @@ async function checkMonitors() {
           [newStatus, monitor.id]
         );
 
-        // If status changed to down, trigger alerts
-        if (monitor.status === 'up' && newStatus === 'down') {
+        // If status changed, trigger alerts
+        if (monitor.status !== newStatus && monitor.status !== 'paused') {
           const [alerts]: any = await pool.query('SELECT * FROM alerts WHERE monitor_id = ?', [monitor.id]);
           for (const alert of alerts) {
-            await sendAlert(alert.destination, alert.type, monitor.name, newStatus, monitor.url);
+            await sendAlert(alert.destination, alert.type, monitor.name, newStatus, monitor.url, monitor.user_id);
           }
-        }
-        
-        // If status changed to up, trigger recovery alerts
-        if (monitor.status === 'down' && newStatus === 'up') {
-            const [alerts]: any = await pool.query('SELECT * FROM alerts WHERE monitor_id = ?', [monitor.id]);
-            for (const alert of alerts) {
-              await sendAlert(alert.destination, alert.type, monitor.name, newStatus, monitor.url);
-            }
         }
       }
     }
   } catch (error) {
-    console.error('Error checking monitors:', error);
+    await logToCloudWatch(`Error checking monitors: ${error}`, 'ERROR');
   }
 }
 
 export function startCronJobs() {
   // Run every minute
   cron.schedule('* * * * *', () => {
-    console.log('Running monitor checks...');
     checkMonitors();
   });
 }

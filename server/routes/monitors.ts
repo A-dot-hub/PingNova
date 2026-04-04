@@ -14,10 +14,23 @@ const monitorSchema = z.object({
 // Get all monitors for user
 router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const [monitors]: any = await pool.query(
-      'SELECT * FROM monitors WHERE user_id = ? ORDER BY created_at DESC',
-      [req.user?.id]
-    );
+    const { search, status } = req.query;
+    let query = 'SELECT * FROM monitors WHERE user_id = ?';
+    const params: any[] = [req.user?.id];
+
+    if (search) {
+      query += ' AND (name LIKE ? OR url LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    if (status) {
+      query += ' AND status = ?';
+      params.push(status);
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    const [monitors]: any = await pool.query(query, params);
     res.json(monitors);
   } catch (error) {
     console.error(error);
@@ -28,6 +41,8 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
 // Get single monitor with history
 router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
   try {
+    const { timeRange } = req.query; // e.g., '24h', '7d', '30d'
+    
     const [monitors]: any = await pool.query(
       'SELECT * FROM monitors WHERE id = ? AND user_id = ?',
       [req.params.id, req.user?.id]
@@ -35,8 +50,14 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
 
     if (monitors.length === 0) return res.status(404).json({ error: 'Monitor not found' });
 
+    let timeFilter = '';
+    if (timeRange === '24h') timeFilter = 'AND checked_at >= NOW() - INTERVAL 1 DAY';
+    else if (timeRange === '7d') timeFilter = 'AND checked_at >= NOW() - INTERVAL 7 DAY';
+    else if (timeRange === '30d') timeFilter = 'AND checked_at >= NOW() - INTERVAL 30 DAY';
+    else timeFilter = 'AND checked_at >= NOW() - INTERVAL 1 DAY'; // Default 24h
+
     const [pings]: any = await pool.query(
-      'SELECT * FROM pings WHERE monitor_id = ? ORDER BY checked_at DESC LIMIT 100',
+      `SELECT * FROM pings WHERE monitor_id = ? ${timeFilter} ORDER BY checked_at DESC`,
       [req.params.id]
     );
 
@@ -44,6 +65,26 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch monitor' });
+  }
+});
+
+// Pause/Resume monitor
+router.put('/:id/pause', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const { paused } = req.body; // boolean
+    const newStatus = paused ? 'paused' : 'up'; // Reset to 'up' when resuming, cron will update if down
+
+    const [result]: any = await pool.query(
+      'UPDATE monitors SET status = ? WHERE id = ? AND user_id = ?',
+      [newStatus, req.params.id, req.user?.id]
+    );
+
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Monitor not found' });
+
+    res.json({ message: `Monitor ${paused ? 'paused' : 'resumed'} successfully`, status: newStatus });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update monitor status' });
   }
 });
 
