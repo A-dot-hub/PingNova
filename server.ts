@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
+import { logToCloudWatch } from './awsClients'; // Adjust path if needed
 import { fileURLToPath } from 'url';
 
 // Load environment variables
@@ -51,6 +52,10 @@ async function startServer() {
     // Initialize Database
     await initDB();
     console.log('Database initialized successfully');
+    app.get('/test-log', async (req, res) => {
+        await logToCloudWatch('🚀 Test log from /test-log endpoint!', 'INFO');
+        res.send('Test log sent to CloudWatch! Check the console and AWS CloudWatch.');
+   });
 
     // Start Cron Jobs
     startCronJobs();
