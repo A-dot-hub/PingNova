@@ -20,12 +20,23 @@ export async function initDB() {
       email VARCHAR(255) NOT NULL UNIQUE,
       password VARCHAR(255) NOT NULL,
       name VARCHAR(255) NOT NULL,
+      phone_number VARCHAR(20),
+      email_alerts BOOLEAN DEFAULT TRUE,
+      sms_alerts BOOLEAN DEFAULT FALSE,
       plan ENUM('free', 'pro', 'business') DEFAULT 'free',
       stripe_customer_id VARCHAR(255),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     );
   `);
+
+  try {
+    await connection.query(`ALTER TABLE users ADD COLUMN phone_number VARCHAR(20)`);
+    await connection.query(`ALTER TABLE users ADD COLUMN email_alerts BOOLEAN DEFAULT TRUE`);
+    await connection.query(`ALTER TABLE users ADD COLUMN sms_alerts BOOLEAN DEFAULT FALSE`);
+  } catch (e) {
+    // Columns might already exist, ignore error
+  }
 
   // Create Monitors table
   await connection.query(`
