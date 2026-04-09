@@ -24,13 +24,16 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
       if (m.status === 'paused') pausedMonitors += m.count;
     });
 
-    // Get active alerts
-    const [alerts]: any = await pool.query(`
+   // Destructure the result: [rows, fields]
+    const [rows]: any = await pool.query(`
       SELECT COUNT(*) as count FROM alerts a
       JOIN monitors m ON a.monitor_id = m.id
       WHERE m.user_id = ? AND m.status = 'down'
     `, [userId]);
-    const activeAlerts = alerts[0].count;
+
+// Access the 'count' property from the first row
+    const activeAlerts = rows[0].count;
+
 
     // Determine time filter for pings
     let timeFilter = '';
