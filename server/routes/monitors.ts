@@ -92,7 +92,7 @@ router.put('/:id/pause', authenticateToken, async (req: AuthRequest, res) => {
 
     if (paused) {
       // Send email confirming the pause
-      const appUrl = process.env.APP_URL || 'http://localhost:3000';
+      const appUrl = process.env.APP_URL || 'http://3.110.162.42:3000';
       const resumeLink = `${appUrl}/dashboard`;
       
       const emailHtml = `
