@@ -67,6 +67,23 @@ export async function initDB() {
     );
   `);
 
+  // Fix broken alerts table from previous versions
+  try {
+    const [columns]: any = await connection.query("SHOW COLUMNS FROM alerts LIKE 'message'");
+    if (columns.length > 0) {
+      console.log("Found old alerts table schema with 'message' column. Dropping and recreating...");
+      await connection.query("DROP TABLE alerts");
+    } else {
+      const [idCol]: any = await connection.query("SHOW COLUMNS FROM alerts LIKE 'id'");
+      if (idCol.length > 0 && idCol[0].Extra !== 'auto_increment') {
+        console.log("Found alerts table without auto_increment. Dropping and recreating...");
+        await connection.query("DROP TABLE alerts");
+      }
+    }
+  } catch (e) {
+    // Ignore if table doesn't exist yet
+  }
+
   // Create Alerts table
   await connection.query(`
     CREATE TABLE IF NOT EXISTS alerts (
