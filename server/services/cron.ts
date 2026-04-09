@@ -14,7 +14,56 @@ export const transporter = nodemailer.createTransport({
 });
 
 async function sendAlert(destination: string, type: string, monitorName: string, status: string, url: string, userId: number) {
-  const message = `Monitor ${monitorName} (${url}) is currently ${status.toUpperCase()}.`;
+  const message = `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+  
+  <h2 style="color: ${status === 'down' ? '#dc2626' : '#16a34a'};">
+    ${status === 'down' ? '🚨 Monitor Down Alert' : '✅ Monitor Recovered'}
+  </h2>
+
+  <p style="color: #475569; line-height: 1.6;">
+    Hi,
+  </p>
+
+  <p style="color: #475569; line-height: 1.6;">
+    Your monitor <strong>${monitorName}</strong> is currently 
+    <strong style="color: ${status === 'down' ? '#dc2626' : '#16a34a'};">
+      ${status.toUpperCase()}
+    </strong>.
+  </p>
+
+  <div style="background-color: #f8fafc; padding: 15px; border-radius: 6px; margin: 20px 0;">
+    <p style="margin: 6px 0;"><strong>🌐 URL:</strong> ${url}</p>
+    <p style="margin: 6px 0;"><strong>📊 Status:</strong> ${status.toUpperCase()}</p>
+    <p style="margin: 6px 0;"><strong>⏱ Time:</strong> ${new Date().toLocaleString()}</p>
+  </div>
+
+  ${
+    status === "down"
+      ? `
+      <p style="color: #b91c1c; line-height: 1.6;">
+        We detected that your service is not responding or returning an error.
+        Our monitoring system will continue checking and notify you once it recovers.
+      </p>
+      `
+      : `
+      <p style="color: #065f46; line-height: 1.6;">
+        Good news! Your service is back online and functioning normally.
+      </p>
+      `
+  }
+
+  <div style="margin-top: 30px; text-align: center;">
+    <a href="${process.env.APP_URL || '#'}" 
+       style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+      View Dashboard
+    </a>
+  </div>
+
+  <p style="color: #94a3b8; font-size: 12px; margin-top: 30px; text-align: center;">
+    This is an automated alert from PingNova monitoring system.
+  </p>
+
+</div>`;
   
   // Fetch user preferences
   const [users]: any = await pool.query('SELECT email_alerts, sms_alerts, phone_number FROM users WHERE id = ?', [userId]);
