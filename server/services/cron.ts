@@ -75,7 +75,7 @@ async function sendAlert(destination: string, type: string, monitorName: string,
         from: '"PingNova Alerts" <alerts@pingnova.com>',
         to: destination,
         subject: `[PingNova] Monitor Alert: ${monitorName} is ${status.toUpperCase()}`,
-        text: emailHtml
+        html: message
       });
       await logToCloudWatch(`Email alert sent to ${destination} for ${monitorName}`, 'INFO');
     } catch (error) {
