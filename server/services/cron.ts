@@ -4,7 +4,7 @@ import nodemailer from 'nodemailer';
 import { sendSMS, logToCloudWatch } from './aws.js';
 
 // Configure Nodemailer (Use your own SMTP credentials in production)
-const transporter = nodemailer.createTransport({
+export const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.ethereal.email',
   port: parseInt(process.env.SMTP_PORT || '587', 10),
   auth: {
