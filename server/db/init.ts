@@ -79,5 +79,11 @@ export async function initDB() {
     );
   `);
 
+  try {
+    await connection.query(`ALTER TABLE alerts ADD COLUMN destination VARCHAR(255) NOT NULL DEFAULT ''`);
+  } catch (e) {
+    // Column might already exist, ignore error
+  }
+
   await connection.end();
 }
