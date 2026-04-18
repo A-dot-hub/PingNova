@@ -1,4 +1,4 @@
-# PingNova - SaaS Uptime Monitoring Platform
+# PingNova - PaaS Uptime Monitoring Platform
 
 PingNova is a production-ready cloud uptime monitoring system built with Node.js, Express, MySQL, and React.
 
